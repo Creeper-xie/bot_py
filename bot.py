@@ -1,7 +1,15 @@
-import asyncio
+import sys
 import json
+import asyncio
 import requests
+
 from websockets.asyncio.client import connect
+
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
 
 def ai(msg):
     msg1= "{\"contents\": [{\"parts\":[{\"text\":" "\"" + msg+ "\"" "}]}]}"
@@ -21,6 +29,6 @@ async def client(config):
 #            ai(msg)
 
 if __name__ == "__main__":
-    with open('config.json','r') as config_file:
-        config = json.load(config_file)
+    with open("config.toml", "rb") as f:
+        config = tomllib.load(f)
     asyncio.run(client(config))
