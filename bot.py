@@ -28,7 +28,7 @@ async def client(config):
     async with connect(uri,additional_headers={"Authorization": "Bearer {}".format(config["token"])}) as websocket:
         while True:
             msg = json.loads(await websocket.recv())
-            if  "message_type" in msg and msg["message_type"] == "private":
+            if  "message_type" in msg and msg["message_type"] == "private" and msg["message"][0]["type"] == "text":
                 print(msg)
                 rec = ai(msg)
 #                sendMsg = json.loads("{\"action\": \"send_msg\",\"params\": {\"detail_type\":\"private\",\"user_id\":\"123456\",\"message\":[{\"type\"=\"text\",\"data\": {\"text\":\"" + rec["candidates"][0]["content"]["parts"][0]["text"] + "\"}}]}}")
