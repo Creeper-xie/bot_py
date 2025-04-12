@@ -31,7 +31,7 @@ def ai(msg):
             print(resp.text)
             resp=json.loads(resp.text)
             if "candidates" not in resp:
-                return "error"
+                return "呜.唔姆...喵♡（被塞口球力....）"
             respText=resp["candidates"][0]["content"]["parts"][0]["text"]
             history.append({"role":"model","parts" : [{"text": respText}]})
             user_contents[user_id]=history[-MAX_HISTORY_LENGTH:]
