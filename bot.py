@@ -21,10 +21,26 @@ def ai(msg):
     global user_contents
     user_id = str(msg["user_id"])
     history=user_contents.get(user_id, [])
+
+    generationConfig = {
+        "response_mime_type": "application/json",
+        "response_schema": {
+            "type": "OBJECT",
+            "properties": {
+                "logic": {"type": "STRING"},
+                "status": {"type":"STRING"},
+                "reply": {"type": "ARRAY",
+                          "items": {"type": "STRING"}
+                          }
+            }
+        }
+    } 
+
     history.append({"role":"user","parts" : [{"text": msg["message"][0]["data"]["text"]}]})
 #    reqMsg= "{\"contents\": [{\"parts\":[{\"text\":" "\"" + msg["message"][0]["data"]["text"]+ "\"" "}]}]}"
-    reqMsg={"contents" : history}
-    gemini_url= "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-thinking-exp:generateContent?key={}".format(config["api_key"])
+    reqMsg={"system_instruction":{"parts":[{"text": prompt}]}, "contents" : history,"generationConfig": generationConfig}
+    gemini_url= "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={}".format(config["api_key"])
+    print(json.dumps(reqMsg))
     while True:
         try:
             resp = requests.post(gemini_url,json.dumps(reqMsg))
@@ -39,6 +55,8 @@ def ai(msg):
         except:
             time.sleep(1)
             if tries >5:
+                tries=0
+                print("error")
                 return "error"
             tries+=1
             continue
@@ -76,4 +94,5 @@ async def client(config):
 if __name__ == "__main__":
     with open("config.toml", "rb") as f:
         config = tomllib.load(f)
+        prompt=str((open(config["prompt"], "r",encoding="utf-8")).read())
     asyncio.run(client(config))
