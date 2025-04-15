@@ -35,7 +35,7 @@ def ai(history):
 
 #    reqMsg= "{\"contents\": [{\"parts\":[{\"text\":" "\"" + msg["message"][0]["data"]["text"]+ "\"" "}]}]}"
     reqMsg={"system_instruction":{"parts":[{"text": prompt}]}, "contents" : history,"generationConfig": generationConfig}
-    gemini_url= "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={}".format(config["api_key"])
+    gemini_url= "{}?key={}".format(config["ai_url"],config["api_key"])
     while True:
         try:
             resp = requests.post(gemini_url,json.dumps(reqMsg))
@@ -54,7 +54,7 @@ def ai(history):
             tries+=1
             continue
 
-async def client(config):
+async def client():
     uri=config["bot_ws_uri"]
     global user_contents
     async with connect(uri,additional_headers={"Authorization": "Bearer {}".format(config["token"])}) as websocket:
@@ -99,4 +99,4 @@ if __name__ == "__main__":
     with open("config.toml", "rb") as f:
         config = tomllib.load(f)
         prompt=str((open(config["prompt"], "r",encoding="utf-8")).read())
-    asyncio.run(client(config))
+    asyncio.run(client())
