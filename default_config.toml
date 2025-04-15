@@ -3,4 +3,4 @@ token = ""
 api_key = ""
 prompt = ""
 enable_groups = [""]
-ai_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-exp:generateContent"
+ai_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-exp-03-25:generateContent"
