@@ -16,12 +16,9 @@ else:
 
 MAX_HISTORY_LENGTH = 30
 user_contents = {}
-def ai(msg):
+def ai(history):
     tries=0
     global user_contents
-    user_id = str(msg["user_id"])
-    history=user_contents.get(user_id, [])
-
     generationConfig = {
         "response_mime_type": "application/json",
         "response_schema": {
@@ -36,11 +33,9 @@ def ai(msg):
         }
     } 
 
-    history.append({"role":"user","parts" : [{"text": msg["message"][0]["data"]["text"]}]})
 #    reqMsg= "{\"contents\": [{\"parts\":[{\"text\":" "\"" + msg["message"][0]["data"]["text"]+ "\"" "}]}]}"
     reqMsg={"system_instruction":{"parts":[{"text": prompt}]}, "contents" : history,"generationConfig": generationConfig}
     gemini_url= "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key={}".format(config["api_key"])
-    print(json.dumps(reqMsg))
     while True:
         try:
             resp = requests.post(gemini_url,json.dumps(reqMsg))
@@ -49,8 +44,6 @@ def ai(msg):
             if "candidates" not in resp:
                 return "呜.唔姆...喵♡（被塞口球力....）"
             respText=resp["candidates"][0]["content"]["parts"][0]["text"]
-            history.append({"role":"model","parts" : [{"text": respText}]})
-            user_contents[user_id]=history[-MAX_HISTORY_LENGTH:]
             return respText
         except:
             time.sleep(1)
@@ -63,16 +56,27 @@ def ai(msg):
 
 async def client(config):
     uri=config["bot_ws_uri"]
+    global user_contents
     async with connect(uri,additional_headers={"Authorization": "Bearer {}".format(config["token"])}) as websocket:
         while True:
             msg = json.loads(await websocket.recv())
             if  "message_type" in msg and msg["message_type"] == "private" and msg["message"][0]["type"] == "text":
                 print(msg)
-                rec = ai(msg)
+                user_id = str(msg["user_id"])
+                history=user_contents.get(user_id, [])
+                history.append({"role":"user","parts" : [{"text": msg["sender"]["nickname"] + "：" + msg["message"][0]["data"]["text"]}]})
+                rec = ai(history)
                 if rec == "error":
                     continue
+                history.append({"role":"model","parts" : [{"text": rec}]})
+                user_contents[user_id]=history[-MAX_HISTORY_LENGTH:]
+                rec = json.loads(rec)
+                if rec["status"] == "skip":
+                    print("跳过这次回复")
+                    continue
 #                sendMsg = json.loads("{\"action\": \"send_msg\",\"params\": {\"detail_type\":\"private\",\"user_id\":\"123456\",\"message\":[{\"type\"=\"text\",\"data\": {\"text\":\"" + rec["candidates"][0]["content"]["parts"][0]["text"] + "\"}}]}}")
-                sendMsg = {
+                for i in rec["reply"]:
+                    sendMsg = {
     "action": "send_msg",
     "params": {
         "detail_type": "private",
@@ -81,13 +85,13 @@ async def client(config):
             {
                 "type": "text",
                 "data": {
-                    "text": rec
+                    "text": i
                 }
             }
         ]
     }
 }
-                await websocket.send(json.dumps(sendMsg))
+                    await websocket.send(json.dumps(sendMsg))
 
 
 
