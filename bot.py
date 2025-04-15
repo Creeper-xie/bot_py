@@ -92,6 +92,7 @@ async def client():
     }
 }
                     await websocket.send(json.dumps(sendMsg))
+                    time.sleep(config["break_time"])
 
 
 
