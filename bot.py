@@ -42,7 +42,7 @@ def ai(history):
             print(resp.text)
             resp=json.loads(resp.text)
             if "candidates" not in resp:
-                return "呜.唔姆...喵♡（被塞口球力....）"
+                raise Exception("喵")
             respText=resp["candidates"][0]["content"]["parts"][0]["text"]
             return respText
         except:
