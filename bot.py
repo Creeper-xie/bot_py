@@ -40,7 +40,7 @@ def ai(history):
         try:
             resp = requests.post(gemini_url,json.dumps(reqMsg))
             print(resp.text)
-            resp=json.loads(resp.text)
+            resp=resp.json()
             if "candidates" not in resp:
                 raise Exception("喵")
             respText=resp["candidates"][0]["content"]["parts"][0]["text"]
@@ -62,7 +62,7 @@ async def client():
             msg = json.loads(await websocket.recv())
             if  "message_type" in msg and msg["message_type"] == "private" and msg["message"][0]["type"] == "text":
                 print(msg)
-                user_id = str(msg["user_id"])
+                user_id = msg["user_id"]
                 history=user_contents.get(user_id, [])
                 history.append({"role":"user","parts" : [{"text": msg["sender"]["nickname"] + "：" + msg["message"][0]["data"]["text"]}]})
                 rec = ai(history)
@@ -99,5 +99,6 @@ async def client():
 if __name__ == "__main__":
     with open("config.toml", "rb") as f:
         config = tomllib.load(f)
-        prompt=str((open(config["prompt"], "r",encoding="utf-8")).read())
+    with open(config["prompt"], "r", encoding="utf-8") as f:
+        prompt = f.read()
     asyncio.run(client())
