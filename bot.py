@@ -1,11 +1,9 @@
 import sys
 import json
 import asyncio
-from typing import Deque
-import requests
-import time
+import pdb
+import aiohttp
 
-from requests.models import ContentDecodingError
 from websockets.asyncio.client import connect
 
 
@@ -16,7 +14,7 @@ else:
 
 MAX_HISTORY_LENGTH = 30
 user_contents = {}
-def ai(history):
+async def ai(session, history):
     tries=0
     global user_contents
     generationConfig = {
@@ -38,7 +36,8 @@ def ai(history):
     gemini_url= "{}?key={}".format(config["ai_url"],config["api_key"])
     while True:
         try:
-            resp = requests.post(gemini_url,json.dumps(reqMsg))
+            async with session.get(gemini_url, json=reqMsg) as resp:
+                data = json.loads(await resp.text())
             print(resp.text)
             resp=resp.json()
             if "candidates" not in resp:
@@ -46,18 +45,17 @@ def ai(history):
             respText=resp["candidates"][0]["content"]["parts"][0]["text"]
             return respText
         except:
-            time.sleep(1)
+            await asyncio.sleep(1)
             if tries >5:
-                tries=0
                 print("error")
                 return "error"
             tries+=1
-            continue
 
 async def client():
     uri=config["bot_ws_uri"]
     global user_contents
-    async with connect(uri,additional_headers={"Authorization": "Bearer {}".format(config["token"])}) as websocket:
+    async with aiohttp.ClientSession(trust_env=True) as session, \
+               connect(uri,additional_headers={"Authorization": "Bearer {}".format(config["token"])}) as websocket:
         while True:
             msg = json.loads(await websocket.recv())
             if  "message_type" in msg and msg["message_type"] == "private" and msg["message"][0]["type"] == "text":
@@ -65,7 +63,7 @@ async def client():
                 user_id = msg["user_id"]
                 history=user_contents.get(user_id, [])
                 history.append({"role":"user","parts" : [{"text": msg["sender"]["nickname"] + "：" + msg["message"][0]["data"]["text"]}]})
-                rec = ai(history)
+                rec = await ai(session, history)
                 if rec == "error":
                     continue
                 history.append({"role":"model","parts" : [{"text": rec}]})
@@ -92,7 +90,7 @@ async def client():
     }
 }
                     await websocket.send(json.dumps(sendMsg))
-                    time.sleep(config["break_time"])
+                    await asyncio.sleep(config["break_time"])
 
 
 
