@@ -2,6 +2,7 @@ import sys
 import json
 import asyncio
 import aiohttp
+from collections import deque
 
 from websockets.asyncio.client import connect
 
@@ -32,7 +33,7 @@ async def ai(session, history):
     } 
 
 #    reqMsg= "{\"contents\": [{\"parts\":[{\"text\":" "\"" + msg["message"][0]["data"]["text"]+ "\"" "}]}]}"
-    reqMsg={"system_instruction":{"parts":[{"text": prompt}]}, "contents" : history,"generationConfig": generationConfig}
+    reqMsg={"system_instruction":{"parts":[{"text": prompt}]}, "contents" : list(history),"generationConfig": generationConfig}
     gemini_url= "{}?key={}".format(config["ai_url"],config["api_key"])
     while tries < 6:
         try:
@@ -57,13 +58,12 @@ async def client():
             if  "message_type" in msg and msg["message_type"] == "private" and msg["message"][0]["type"] == "text":
                 print(msg)
                 user_id = msg["user_id"]
-                history=user_contents.setdefault(user_id, [])
+                history=user_contents.setdefault(user_id, deque(maxlen=MAX_HISTORY_LENGTH))
                 history.append({"role":"user","parts" : [{"text": msg["sender"]["nickname"] + "：" + msg["message"][0]["data"]["text"]}]})
                 rec = await ai(session, history)
                 if rec == "error":
                     continue
                 history.append({"role":"model","parts" : [{"text": rec}]})
-                history=history[-MAX_HISTORY_LENGTH:]
                 rec = json.loads(rec)
                 if rec["status"] == "skip":
                     print("跳过这次回复")
