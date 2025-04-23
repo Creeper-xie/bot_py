@@ -36,13 +36,12 @@ async def ai(session, history):
     gemini_url= "{}?key={}".format(config["ai_url"],config["api_key"])
     while True:
         try:
-            async with session.get(gemini_url, json=reqMsg) as resp:
-                data = json.loads(await resp.text())
-            print(resp.text)
-            resp=resp.json()
-            if "candidates" not in resp:
+            async with session.post(gemini_url, json=reqMsg) as resp:
+                data = json.loads(json.dumps(await resp.json()))
+            print(data)
+            if "candidates" not in data:
                 raise Exception("喵")
-            respText=resp["candidates"][0]["content"]["parts"][0]["text"]
+            respText=data["candidates"][0]["content"]["parts"][0]["text"]
             return respText
         except:
             await asyncio.sleep(1)
@@ -50,7 +49,6 @@ async def ai(session, history):
                 print("error")
                 return "error"
             tries+=1
-
 async def client():
     uri=config["bot_ws_uri"]
     global user_contents
