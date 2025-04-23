@@ -37,8 +37,8 @@ async def ai(session, history):
     while True:
         try:
             async with session.post(gemini_url, json=reqMsg) as resp:
-                data = json.loads(json.dumps(await resp.json()))
-            print(data)
+                data = await resp.json()
+            print(json.dumps(data))
             if "candidates" not in data:
                 raise Exception("喵")
             respText=data["candidates"][0]["content"]["parts"][0]["text"]
