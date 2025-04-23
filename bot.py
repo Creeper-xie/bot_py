@@ -4,14 +4,15 @@ import asyncio
 import aiohttp
 from collections import deque
 
+from rich.console import Console
 from websockets.asyncio.client import connect
-
 
 if sys.version_info >= (3, 11):
     import tomllib
 else:
     import tomli as tomllib
 
+console = Console()
 
 MAX_HISTORY_LENGTH = 30
 user_contents = {}
@@ -43,7 +44,7 @@ async def ai(session, history):
             await asyncio.sleep(1)
             tries += 1
         else:
-            print(data)
+            console.log(data)
             if "candidates" not in data:
                 raise Exception("喵")
             respText=data["candidates"][0]["content"]["parts"][0]["text"]
@@ -56,7 +57,7 @@ async def client():
         while True:
             msg = json.loads(await websocket.recv())
             if  "message_type" in msg and msg["message_type"] == "private" and msg["message"][0]["type"] == "text":
-                print(msg)
+                console.log(msg)
                 user_id = msg["user_id"]
                 history=user_contents.setdefault(user_id, deque(maxlen=MAX_HISTORY_LENGTH))
                 history.append({"role":"user","parts" : [{"text": msg["sender"]["nickname"] + "：" + msg["message"][0]["data"]["text"]}]})
