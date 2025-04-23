@@ -1,7 +1,6 @@
 import sys
 import json
 import asyncio
-import pdb
 import aiohttp
 
 from websockets.asyncio.client import connect
@@ -11,6 +10,7 @@ if sys.version_info >= (3, 11):
     import tomllib
 else:
     import tomli as tomllib
+
 
 MAX_HISTORY_LENGTH = 30
 user_contents = {}
@@ -34,21 +34,19 @@ async def ai(session, history):
 #    reqMsg= "{\"contents\": [{\"parts\":[{\"text\":" "\"" + msg["message"][0]["data"]["text"]+ "\"" "}]}]}"
     reqMsg={"system_instruction":{"parts":[{"text": prompt}]}, "contents" : history,"generationConfig": generationConfig}
     gemini_url= "{}?key={}".format(config["ai_url"],config["api_key"])
-    while True:
+    while tries < 6:
         try:
             async with session.post(gemini_url, json=reqMsg) as resp:
                 data = await resp.json()
-            print(json.dumps(data))
+        except aiohttp.ClientError:
+            await asyncio.sleep(1)
+            tries += 1
+        else:
+            print(data)
             if "candidates" not in data:
                 raise Exception("喵")
             respText=data["candidates"][0]["content"]["parts"][0]["text"]
             return respText
-        except:
-            await asyncio.sleep(1)
-            if tries >5:
-                print("error")
-                return "error"
-            tries+=1
 async def client():
     uri=config["bot_ws_uri"]
     global user_contents
@@ -59,13 +57,13 @@ async def client():
             if  "message_type" in msg and msg["message_type"] == "private" and msg["message"][0]["type"] == "text":
                 print(msg)
                 user_id = msg["user_id"]
-                history=user_contents.get(user_id, [])
+                history=user_contents.setdefault(user_id, [])
                 history.append({"role":"user","parts" : [{"text": msg["sender"]["nickname"] + "：" + msg["message"][0]["data"]["text"]}]})
                 rec = await ai(session, history)
                 if rec == "error":
                     continue
                 history.append({"role":"model","parts" : [{"text": rec}]})
-                user_contents[user_id]=history[-MAX_HISTORY_LENGTH:]
+                history=history[-MAX_HISTORY_LENGTH:]
                 rec = json.loads(rec)
                 if rec["status"] == "skip":
                     print("跳过这次回复")
