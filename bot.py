@@ -3,6 +3,7 @@ import json
 import asyncio
 import aiohttp
 from collections import deque
+from dataclasses import dataclass
 
 from rich.console import Console
 from websockets.asyncio.client import connect
@@ -16,25 +17,43 @@ console = Console()
 
 MAX_HISTORY_LENGTH = 30
 user_contents = {}
-async def ai(session, history):
+
+GENERATION_CONFIG = {
+    "response_mime_type": "application/json",
+    "response_schema": {
+        "type": "object",
+        "properties": {
+            "logic": {
+                "type": "string",
+            },
+            "status": {
+                "type": "string",
+                "enum": ["success", "skip"],
+            },
+            "messages": {
+                "type": "array",
+                "items": {
+                    "type": "string",
+                },
+            },
+        },
+        "required": ["logic", "status", "messages"],
+    },
+} 
+
+
+@dataclass
+class Response:
+    logic: str
+    status: str
+    messages: list[str]
+
+
+async def ai(session, history) -> Response:
     tries=0
     global user_contents
-    generationConfig = {
-        "response_mime_type": "application/json",
-        "response_schema": {
-            "type": "OBJECT",
-            "properties": {
-                "logic": {"type": "STRING"},
-                "status": {"type":"STRING"},
-                "reply": {"type": "ARRAY",
-                          "items": {"type": "STRING"}
-                          }
-            }
-        }
-    } 
 
-#    reqMsg= "{\"contents\": [{\"parts\":[{\"text\":" "\"" + msg["message"][0]["data"]["text"]+ "\"" "}]}]}"
-    reqMsg={"system_instruction":{"parts":[{"text": prompt}]}, "contents" : list(history),"generationConfig": generationConfig}
+    reqMsg={"system_instruction":{"parts":[{"text": prompt}]}, "contents" : list(history),"generationConfig": GENERATION_CONFIG}
     gemini_url= "{}?key={}".format(config["ai_url"],config["api_key"])
     while tries < 6:
         try:
@@ -48,7 +67,10 @@ async def ai(session, history):
             if "candidates" not in data:
                 raise Exception("喵")
             respText=data["candidates"][0]["content"]["parts"][0]["text"]
-            return respText
+            resp = json.loads(respText)
+            return Response(**resp)
+
+
 async def client():
     uri=config["bot_ws_uri"]
     global user_contents
@@ -61,16 +83,12 @@ async def client():
                 user_id = msg["user_id"]
                 history=user_contents.setdefault(user_id, deque(maxlen=MAX_HISTORY_LENGTH))
                 history.append({"role":"user","parts" : [{"text": msg["sender"]["nickname"] + "：" + msg["message"][0]["data"]["text"]}]})
-                rec = await ai(session, history)
-                if rec == "error":
-                    continue
-                history.append({"role":"model","parts" : [{"text": rec}]})
-                rec = json.loads(rec)
-                if rec["status"] == "skip":
+                resp = await ai(session, history)
+                if resp.status == "skip":
                     print("跳过这次回复")
                     continue
-#                sendMsg = json.loads("{\"action\": \"send_msg\",\"params\": {\"detail_type\":\"private\",\"user_id\":\"123456\",\"message\":[{\"type\"=\"text\",\"data\": {\"text\":\"" + rec["candidates"][0]["content"]["parts"][0]["text"] + "\"}}]}}")
-                for i in rec["reply"]:
+                history.append({"role":"model","parts" : [{"text": resp}]})
+                for message in resp.messages:
                     sendMsg = {
     "action": "send_msg",
     "params": {
@@ -80,7 +98,7 @@ async def client():
             {
                 "type": "text",
                 "data": {
-                    "text": i
+                    "text": message
                 }
             }
         ]
